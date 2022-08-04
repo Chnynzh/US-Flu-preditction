@@ -1,0 +1,147 @@
+---
+title: "US Flu prediction"
+author: "Yinzhi Chen"
+date: '2022-04-07'
+output: pdf_document
+header-includes: \usepackage{setspace}\doublespacing
+fontsize: 12pt
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(astsa)
+length(flu)
+x1 = flu
+plot.ts(x1, xlab = "Years", ylab = "Monthly flu deaths in the U.S.from 1968 to 1978.") # Pick data chicken from package astsa
+acf2(x1, 50)
+```
+First, pick data "flu" from package "astsa", the dataset includes Monthly pneumonia and influenza deaths in the U.S., 1968 to 1978. As the ongoing pandemic Covid 19, which also appears similar symptoms as flu, so I intend to use this dataset.
+Second, checking the length of the dataset, it has 132 observations which is more than 100 observations so it satisfied.
+Third, by observing the process is not stationary, and by observing the ACF plot which clearly displays a seasonal pattern, and ACF has a very slow decay to zero, so it indicates a differencing is needed to make it stationary.
+
+```{r, fig.cap= "Monthly pneumonia and influenza death in the US from 1968 to 1978"}
+diff1 = diff(x1)
+plot.ts(diff1)
+```
+
+```{r}
+diff1 <- acf2(diff(x1))
+```
+```{r}
+monthplot(diff1)
+```
+By observing at the ACF and monthplot after regular differencing, it is clear the there is still persistence in the seasons which we should get rid of the effect of it.
+
+```{r}
+diff2 = diff(diff(x1, lag = 12))
+plot(diff2)
+```
+Then plot the new month plot after seasonal differencing
+```{r}
+monthplot(diff2)
+```
+By observing the monthplot, the transformed data appears no seasonal trend and the transformed data appears to be stationary which is sutiable for us to fit model.
+```{r}
+diff2 <- acf2(diff(diff(x1, lag = 12)))
+```
+The ACF cuts off after lag 2, PACF tails off which indicates MA(2) => p=2
+PACF cuts off after lag 2, ACF tails off which indicates AR(2) => q=2
+Then we used regular differencing once and seasonal differencing once for the flu data so our d and D values equal to 1. 
+ACF cuts off after 2s, PACF tails off which indicates SMA(2) => Q = 2
+PACF cuts off after 1s, ACF tails off which indicates SAR(1) => P = 1
+Thus the first model is ARIMA = (2, 1, 2) x (1, 1, 2)s
+
+```{r}
+sarima(x1, 2, 1, 2, 1, 1, 2, 12)
+```
+The initial model have some insignificant p values, so we should try dropping one of the parameter from p and q.
+Try droppoing the q value by 1 and fit ARIMA = (2, 1, 1) x (1, 1, 2)s
+```{r}
+mod1 = sarima(x1, 2, 1, 1, 1, 1, 2, 12, details = TRUE)
+```
+
+Try droppoing the p value by 1 and fit ARIMA = (1, 1, 2) x (1, 1, 2)s
+```{r}
+sarima(x1, 1, 1, 2, 1, 1, 2, 12)
+```
+Comparing the 3 fitted model, the first model have some insignificant p values, then by dropping parameters to ensure the p values are significant. 
+The second model drops q value by 1 which more p values become significant but there has some p value points for Ljung-Box statistic are below the blue line which doesn't satisfy p-test.
+The third model drops p value by 1 which more p values become significant and all of the p values points for Ljung-Box statistic are above the blue line. 
+Thus, the third ARIMA model ARIMA = (1, 1, 2) x (1, 1, 2)s is chosen.
+By observing the new fitted model, standard residual doesn't follow any patterns or trend, ACF also lie between the upper and lower blue lines, normal QQ plots are mostly around the residual line with very few outliers, all of the residual diagnostics are above the blue line, which means the results are significant, so the model is feasible for future predictions.
+
+```{r}
+pred1 <- sarima.for(x1, 10, 1, 1, 2, 1, 1, 2, 12 )
+```
+```{r}
+year <- c(1:10)
+upper = pred1$pred+qnorm(0.975)*pred1$se # 5% upper Prediction interval 
+lower = pred1$pred-qnorm(0.975)*pred1$se # 5% lower Prediction interval
+(data.frame("Prediction"=pred1$pred,"95% PI Lower Bound"=lower,"95% PI Upper Bound"=upper)) 
+```
+By observing the prediction interval dataframe for the next 10 values, we observe that the predictions are following a seasonal pattern with slow decays.
+
+```{r}
+flu.per = mvspec(flu, log = "no")
+```
+
+
+```{r}
+p1 <- flu.per$details[order(flu.per$details[,3],decreasing = TRUE),]
+p1[1,1];p1[2,1];p1[3,1]
+```
+
+```{r}
+cat("cycles are occuring at", 1/p1[1,1],1/p1[2,1],1/p1[3,1])
+```
+
+```{r}
+library(MASS)
+flu.u1 = 2*p1[1,3]/qchisq(.025,2)
+flu.l1 = 2*p1[1,3]/qchisq(.975,2)
+flu.u2 = 2*p1[2,3]/qchisq(.025,2)
+flu.l2 = 2*p1[2,3]/qchisq(.975,2)
+flu.u3 = 2*p1[3,3]/qchisq(.025,2)
+flu.l3 = 2*p1[3,3]/qchisq(.975,2)
+```
+```{r}
+Res <- data.frame(Series=c(rep("flu",3)),
+Dominant.Freq=c(p1[1,1],p1[2,1],p1[3,1]),Spec=c(p1[1,3],p1[2,3],p1[3,3]),
+lower = c(flu.l1,flu.l2,flu.l3),
+Upper = c(flu.u1,flu.u2,flu.u3))
+Res
+```
+We can't establish the significance of the first peak since the first periodogram ordinate is 0.0374, which lies in the confidence intervals of the second peak.
+We can't establish the significance of the second peak since the second periodogram ordinate is 0.0078, which lies in the confidence intervals of the third peak.
+We can't establish the significance of the third peak since the third periodogram ordinate is 0.0023, which lies in the confidence intervals of the second peak.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
