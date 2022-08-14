@@ -1,0 +1,157 @@
+---
+title: "Pneumonia and Influenza Prediction Model Using Time Series"
+author: "Yinzhi Chen"
+date: '2022-04-14'
+output: pdf_document
+fig_caption: yes
+header-includes: \usepackage{setspace}\doublespacing
+fontsize: 12pt
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+```{r, include=FALSE}
+library(astsa)
+length(flu)
+x1 = log(flu)
+```
+## Abstract
+One of the biggest pneumonia and influenza flu outbreaks in the 20th century occurred in 1968, it is one of the fastest spreading diseases which could cause death in the last century. This influenza pandemic was caused by the influenza A (H3N2) virus, which spread to the United States in September 1968. The virus is highly lethal, killing over 1 million people worldwide and 100,000 in the United States.(1) This connects to our situation of the pandemic, Covid 19. It has been a global issue in recent 3 years, it brings panic to the people and also harms human health, and has a certain fatality rate. In this case, creating a predictable table for the death rate of pneumonia and influenza from 1968 to 1978 could be helpful for doctors and specialists to prevent the virus from spreading and prepare future treatments for patients. In the report, we will use the flu data from astsa package to build a seasonal ARIMA model. Then applied the significance tests for the fitted model and used the best-fitted model for future values prediction. Through the observation of the fitted model, there exists a seasonal trend which indicates most of the monthly deaths of flu were around winter. Meanwhile, we observe that there is a slowly decreasing trend of monthly deaths in the US, which may be caused by the tendency of world medical development, or the government's effort in flu prevention. The results indicate that the monthly death rate of flu has been continuously decreasing, so the US people took reliable actions to decrease the death rate of the flu. It indicates the success of governments control and doctors' effort. Meanwhile, for generating an accurate model, other factors that could influence the fitted model should also be considered.
+
+keywords: flu, influenza, reduce, time series, fitted model
+
+## Introduction
+As the covid 19 pandemic that our society is experiencing right now and the flu happened from 1968 to 1978, it is drastically important that the virus is affecting our life severely, it threatens all human beings’ health all over the world. Building a reliable and accurate model for predicting future monthly deaths caused by the flu could prevent extreme virus spreads and reduce the number of deaths caused by the flu. For building the model, upload the data set “flu” from the astsa package which collected the United States monthly number of deaths caused by pneumonia and influenza per 10,000 people from 1968 to 1978. The number of people who have died because of pneumonia and influenza has been boosted since the H3N2 influenza virus occurred in 1968 spread from Hong Kong(2). So I hope this report could be helpful for predicting the future number of deaths caused by the flu, and helps doctors and experts to prevent pneumonia and influenza and reduce the number of deaths. In the following part of the report, I fitted ARIMA model and make predictions of future values for statistical method, then conclude the results and discuss the findings at last.
+
+## Statistical method
+Initially, we begin by generating a monthly time series plot of monthly pneumonia and influenza deaths in the U.S from 1968 to 1978. From the first figure, we could observe that the time series plot exists a slowly decreasing trend with slightly decreasing variance.
+\newpage
+
+```{r,fig.height=2.7, fig.width=6, fig.cap = "Monthly pneumonia and influenza death in the US fom 1968 to 1978", echo=FALSE}
+plot.ts(x1, xlab = "Years", ylab = "Monthly flu deaths from 1968 to 1978.")
+```
+
+For creating a stationary process, certain actions must be taken in order to ensure the time series is constant, we could use transformation or difference. Applying transformation and difference to the data, we initially log transform the data  to reduce and remove the data's skewness, then remove the slowly decreasing trend. Therefore, we could easily observe that the time series plot and ACF plot exists a seasonal trend through the time series as well, it is clear that there is still persistence in the seasons which follows a repeating trend every twelve months, then a difference of seasonal trend lag equals twelve is also mandatory. 
+
+```{r,fig.height=2.8, fig.width=7.5, fig.cap="Monthly time series plot after regualr differencing and seasonal differencing after regular differencing", echo=FALSE}
+diff1 = diff(x1)
+diff2 = diff(diff(x1), lag = 12)
+par(mfrow = c(1,2))
+plot.ts(diff1, ylab = "Regular difference", xlab = "Time: Monthly")
+plot(diff2, ylab = "Seasonal diff after regular diff", xlab = "Time: Monthly")
+```
+
+After regular and seasonal differencing, we could tell that the time series data appears stationary with a constant mean and variance. Thus, we could use the differenced data for fitting the sample ACF and PACF models.
+
+```{r,fig.height=2.7, fig.width=6,fig.cap="Sample ACF and PACF of differenced data", echo=FALSE}
+diff2 <- acf2(diff(diff(x1, lag = 12)))
+```
+                          For fitting a suitable SARIMA model for the dataset, we have to identify the cut offs of the ACF and PACF graph for both non-seasonal and seasonal components. First, observing the non-seasonal components, in the ACF plot, it cuts off after lag = 2, PACF cuts off after lag 2. Then, we could estimate p = 2 and q = 2. Since we used regular differencing once which indicates d = 1. For seasonal components, ACF cuts off after 2s which s = 12, PACF cuts off after 1s. Therefore we could estimate that P = 1, Q = 2. Since we used seasonal differencing once which indicates D = 1. Thus, we could start to fit the first model ARIMA(2, 1, 2) x (1, 1, 2)12. The below figures show the analysis of the model with its t-table.
+
+```{r,fig.height=2.8, fig.width=6,fig.cap="Residual analysis of ARIMA(2,1,2) X (1,1,2)12 for flu", echo=FALSE,results='hide'}
+mod1 = sarima(x1, 2, 1, 2, 1, 1, 2, 12)
+```
+```{r,fig.height=2, fig.width=6, echo=FALSE, message=FALSE}
+knitr::kable(mod1$ttable)
+```
+
+By observing the initial model's T-table, the model has some insignificant p values, which means these variables with insignificant p values could be rejected, so we should try dropping one of the parameters from p and q in order to modify the variables to be significant. Thus, try dropping the p-value by 1 and fit the model ARIMA(1, 1, 2) x (1, 1, 2)s
+
+```{r, fig.height=2.8, fig.width=6,fig.cap="Residual analysis of ARIMA(1,1,2) X (1,1,2)12 for flu", echo=FALSE, results='hide'}
+mod2 = sarima(x1, 1, 1, 2, 1, 1, 2, 12)
+```
+
+Comparing the 2 fitted models, the first ARIMA model contains some insignificant p values, then drop parameters to ensure the p values are significant. The second ARIMA model drops p-value by 1 which more p values become significant and all of the p-values points for Ljung-Box statistics are above the blue line. 
+By observing the first and third model, both of the standard residuals doesn't follow any patterns or trend; The ACF of both series don't exceed the blue dash lines; Both normal QQ plots are mostly around the residual line with very few outliers; Both of the residual diagnostics for Ljung-Box statistics are above the significance level. The above features indicate that both models' results are significant. Thus, calculating AIC, BIC and AICc will determine a better model.
+```{r, echo=FALSE}
+titles <- c("ARIMA(2,1,2)x(1,1,2)12", "ARIMA(1,1,2)x(1,1,2)12")
+AIC <- c( "-2.406192","-2.416641")
+BIC <- c( "-2.219361","-2.253163")
+AICc <- c("-2.397713","-2.410338")
+knitr::kable(data.frame(AIC, BIC, AICc, row.names = titles))
+```
+From the table above, the second model ARIMA = (1,1,2) x (1,1,2)s is chosen since it has smaller AIC, BIC and AICc values. Then the fitted model could be written as below, Xt represents monthly death of flu and Wt represents white noise has N(0,sigma^2)
+$$
+(1-\phi_1B)({1-\phi_1b^{12}})\nabla \nabla_{12}logX_t=(1+\theta_1 B + \theta_2 B^2)(1+\Theta_1 B^{12} + \theta_2B^{24}) W_t
+$$
+
+## Results
+Thus, observing the t-table of the selected model, we could put the parameter estimations with their p-values in the following table:
+
+```{r,fig.cap= "T-table of fitted ARIMA(1,1,2)x(1,1,2)12 model",echo=FALSE}
+knitr::kable(mod2$ttable)
+```
+
+The table shows the accurate result of p-values of each parameter since our significance level is 0.05. To determine whether the parameters are significant or not, we should compare the p-values with a significance level of 0.05. Then, the p-value of parameters of AR(1) and SMA(1) is greater than 0.05 but other parameter estimations' p-value is smaller than 0.05. Thus, the final fitted ARIMA(1,1,2)X(1,1,2)12 model is:
+$$
+(1- 0.0619B)({1-0.0619B^{12}})\nabla \nabla_{12}logX_t=(1 + 0.3024 B - 0.6976B^2)(1 + 0.1547 B^{12} - 0.8453B^{24}) W_t
+$$
+The formula indicates that the monthly flu are affected by above factors with p = 1 and seasonal P = 1 the order of the autoregressive model, d = 1 is the times of differencing, D = 1 is the time of seasonal differencing, q = 2 and seasonal Q = 2 refers to the order of a moving average model, s = 12 represents the seasonal circles every 12 months of the data.                     .
+Thus, the fitted model is suitable for predicting the future 10 months of monthly flu deaths in the U.S. Below figure shows the future ten-month forecasting model, the red dots refer to the future 10 months prediction value and the gray shades area refers to the prediction intervals. 
+
+```{r, fig.height=2.7, fig.width=7,fig.cap="Future 10 months ARIMA(1,1,2)X(1,1,2)12 model forecast", echo=FALSE}
+pred1 <- sarima.for(x1, 10, 1, 1, 2, 1, 1, 2, 12 )
+```
+
+Below is the table of 10 months forecast of ARIMA(1,1,2)X(1,1,2)12 model of log(flu) prediction intervals values.
+
+```{r, echo=FALSE}
+year <- c(1:10)
+upper = pred1$pred+qnorm(0.975)*pred1$se # 5% upper Prediction interval 
+lower = pred1$pred-qnorm(0.975)*pred1$se # 5% lower Prediction interval
+knitr::kable(data.frame("Prediction"=pred1$pred,"95% PI Lower Bound"=lower,"95% PI Upper Bound"=upper)) 
+```
+
+Observing the future 10-month predicted results with the predicted model, it's clear there exists a slowly decaying trend, it indicates monthly pneumonia and influenza death will keep decreasing in the next 10 months. Meanwhile, it's also clear that there exists a periodic seasonal trend with a peak during winter and a valley during summer. It's logically and scientifically normal since a colder climate is a key factor to make more people susceptible to infect pneumonia and influenza. 
+From the 95% prediction interval, it represents the value ranges the response will fall into, as the prediction of values goes further, the prediction interval becomes larger since the further time goes, the bigger error prediction will have. But for the 10 prediction points, the prediction interval is narrow which indicates the result is relatively reliable and accurate.\
+Next, in order to find out the first three dominant periods of a spectrum, we could use a periodogram to identify the dominant periods of the flu time series.
+
+```{r,fig.cap="Perdiodogram of flu",fig.height=2.8, fig.width=5.7,echo=FALSE}
+flu.per = mvspec(flu, log = "no")
+```
+
+Through the observation of periodogram, it has a peak around 0.9, we have a seasonal period s = 12, so compare 0.9 with 1/12 which is relatively close. Then the first three dominant periods could be analyzed using spectrum, the 95% confidence interval predominant spectrum is shown below.
+
+```{r,include=FALSE}
+p1 <- flu.per$details[order(flu.per$details[,3],decreasing = TRUE),]
+p1[1,1];p1[2,1];p1[3,1]
+```
+
+```{r, include=FALSE}
+cat("cycles are occuring at", 1/p1[1,1],1/p1[2,1],1/p1[3,1])
+```
+
+```{r,include=FALSE}
+library(MASS)
+flu.u1 = 2*p1[1,3]/qchisq(.025,2)
+flu.l1 = 2*p1[1,3]/qchisq(.975,2)
+flu.u2 = 2*p1[2,3]/qchisq(.025,2)
+flu.l2 = 2*p1[2,3]/qchisq(.975,2)
+flu.u3 = 2*p1[3,3]/qchisq(.025,2)
+flu.l3 = 2*p1[3,3]/qchisq(.975,2)
+```
+```{r,echo=FALSE}
+Res <- data.frame(Series=c(rep("flu",3)),
+Dominant.Freq=c(p1[1,1],p1[2,1],p1[3,1]),Spec=c(p1[1,3],p1[2,3],p1[3,3]),
+lower = c(flu.l1,flu.l2,flu.l3),
+Upper = c(flu.u1,flu.u2,flu.u3))
+knitr::kable(Res)
+```
+Observing the 95% confidence interval predominant spectrum, the three periods all have a very small range between lower and upper intervals which could be used for determining significance. However, there exist overlaps between each period's confidence interval. The intervals of the first and second dominant periods have overlapped and the intervals of the second and third dominant periods also have overlapped. As a result, we cannot establish the significance of the first peak since the periodogram ordinate is 0.0374, which lies in the confidence interval of the second and third peaks; we cannot establish the significance of the second peak since the periodogram ordinate is 0.0078, which lies in the confidence interval of the second and third peak; 
+
+\newpage
+We cannot establish the significance of the first peak since the periodogram ordinate is 0.0374, which lies in the confidence interval of the second and third peak. As a result, all of the three dominant spectrum cannot be used to establish significance.
+
+
+## Discussion
+In conclusion, combining the original data with prediction data, we observe that monthly pneumonia and influenza deaths in the U.S have a slowly decaying trend which means there will be fewer and fewer people died due to pneumonia and influenza. There might be several reasons for this. First, through reading the report of MedicalNewsTodays report about Covid 19(3), the Omicron cause less severe disease than Delta is because the increased transmissibility of virus will decrease its damage, so the same as pneumonia and influenza, the virus damage for people will keep decreasing since the virus wants to spread more. Second, the government, experts, and doctors are experienced in preventing the spread of virus such as wearing masks, decrease social interaction and develop efficient treatment. The predicted model is not completely accurate since there still exists limitations, since the sample size only has 132 observations which are relatively small, small sample size may result in inaccurate future value predictions.  Additionally, there are a few outliers in the normality QQ plot which may affect the performance of the model. Lastly, different places have different amounts of flu-infected patients. If it's possible to record the flu infections number of each state in the US instead of the total number for the whole country it would be better to make predictions based on different states' situations.
+
+\newpage
+
+## Bibliography
+
+(1)Rogers, K. (n.d.). 1968 flu pandemic. Encyclopædia Britannica. Retrieved April 13, 2022, from https://www.britannica.com/event/1968-flu-pandemic 
+\
+(2)Centers for Disease Control and Prevention. (2019, January 2). 1968 pandemic (H3N2 virus). Centers for Disease Control and Prevention. Retrieved April 14, 2022, from https://www.cdc.gov/flu/pandemic-resources/1968-pandemic.html 
+\
+(3)Shukla, D. (n.d.). Does Omicron cause less damage to the lungs? Medical News Today. Retrieved April 15, 2022, from https://www.medicalnewstoday.com/articles/covid-19-does-omicron-cause-less-damage-to-the-lungs 
